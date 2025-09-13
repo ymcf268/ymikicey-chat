@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>YMIKICEY Chat</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="chat-container">
+        <div class="welcome-banner">🌟 Hey, welcome! I'm <span class="glow">YMIKICEY</span>. Let’s chat!</div>
+
+        <!-- Mode toggle -->
+        <div class="mode-toggle">
+            <button id="chat-mode" class="active">💬 Chat</button>
+            <button id="image-mode">🖼️ Image</button>
+        </div>
+
+        <div class="chat-messages" id="chat-messages"></div>
+        <div class="chat-input">
+            <textarea id="message-input" placeholder="Type a message..." rows="1"></textarea>
+            <button id="send-btn">Enter</button>
+        </div>
+    </div>
+
+    <script>
+        let mode = "chat"; // default mode
+        const chatBtn = document.getElementById("chat-mode");
+        const imgBtn = document.getElementById("image-mode");
+
+        chatBtn.addEventListener("click", () => {
+            mode = "chat";
+            chatBtn.classList.add("active");
+            imgBtn.classList.remove("active");
+        });
+
+        imgBtn.addEventListener("click", () => {
+            mode = "image";
+            imgBtn.classList.add("active");
+            chatBtn.classList.remove("active");
+        });
+
+        const sendBtn = document.getElementById("send-btn");
+        const messageInput = document.getElementById("message-input");
+        const chatMessages = document.getElementById("chat-messages");
+
+        function addMessage(sender, text, isHtml = false) {
+            const msgDiv = document.createElement("div");
+            msgDiv.classList.add("message", sender);
+            if (isHtml) msgDiv.innerHTML = text;
+            else msgDiv.textContent = text;
+            chatMessages.appendChild(msgDiv);
+            chatMessages.scrollTo({ top: chatMessages.scrollHeight, behavior: "smooth" });
+        }
+
+        function showTyping() {
+            const typingDiv = document.createElement("div");
+            typingDiv.classList.add("message", "bot", "typing-indicator");
+            typingDiv.innerHTML = `
+                <span class="glow">Y</span>
+                <div class="typing">
+                    <span class="typing-dot"></span>
+                    <span class="typing-dot"></span>
+                    <span class="typing-dot"></span>
+                </div>`;
+            chatMessages.appendChild(typingDiv);
+            chatMessages.scrollTo({ top: chatMessages.scrollHeight, behavior: "smooth" });
+            return typingDiv;
+        }
+
+        async function sendMessage() {
+            const msg = messageInput.value.trim();
+            if (!msg) return;
+            addMessage("user", msg);
+            messageInput.value = "";
+
+            const typingDiv = showTyping();
+
+            const response = await fetch("/send_message", {
+                method: "POST",
+                headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                body: `message=${encodeURIComponent(msg)}&mode=${mode}`
+            });
+
+            const data = await response.json();
+            typingDiv.remove();
+
+            if (data.reply.startsWith("<img")) {
+                addMessage("bot", data.reply, true);
+            } else {
+                typeWriter("bot", data.reply, 15);
+            }
+        }
+
+        function typeWriter(sender, text, speed) {
+            const msgDiv = document.createElement("div");
+            msgDiv.classList.add("message", sender);
+            chatMessages.appendChild(msgDiv);
+
+            let i = 0;
+            function typing() {
+                if (i < text.length) {
+                    msgDiv.textContent += text.charAt(i);
+                    i++;
+                    chatMessages.scrollTo({ top: chatMessages.scrollHeight, behavior: "smooth" });
+                    setTimeout(typing, speed);
+                }
+            }
+            typing();
+        }
+
+        sendBtn.addEventListener("click", sendMessage);
+        messageInput.addEventListener("keydown", function(e) {
+            if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+    </script>
+</body>
+</html>
